@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="./icone.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icone-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Radier — radier sur ressorts (EN 1997)</title>
+    <meta
+      name="description"
+      content="Radier rectangulaire sur ressorts de Winkler avec décollement : tassements, pression du sol et moments de calcul de Wood-Armer selon l’Eurocode 7."
+    />
+    <meta name="theme-color" content="#f7f7f6" />
+  </head>
+  <body>
+    <div class="barre">
+      <div class="barre-corps">
+        <span class="barre-nom">webaedificium</span>
+        <div class="barre-actions">
+          <a class="barre-lien" href="https://henri421.github.io/WebAedificium/" target="_blank" rel="noopener">Suite</a>
+          <a class="barre-langue" href="en/" lang="en" hreflang="en">EN</a>
+        </div>
+      </div>
+    </div>
+
+    <header>
+      <h1>Radier</h1>
+      <p class="sous-titre">
+        Radier rectangulaire sur ressorts de Winkler avec décollement : tassements, pression du sol, moments de calcul de Wood-Armer (EN 1997-3, 5.2.4.2, 5.5.6 et annexe B), en 1<sup>re</sup> ou 2<sup>e</sup> génération.
+      </p>
+      <p class="avertissement">
+        Non traités : contour quelconque et ouvertures, sol couplé (Boussinesq), radier sur pieux, épaisseur variable, ferraillage et poinçonnement (outils EC2 et Poinçonnement), effets dynamiques, gonflement.
+      </p>
+    </header>
+    <div class="feuilles" data-role="feuilles"></div>
+
+    <main>
+      <section id="saisie" aria-label="Saisie">
+        <form id="formulaire" autocomplete="off" novalidate>
+          <p data-role="erreur" class="erreur" role="alert" hidden></p>
+
+          <fieldset>
+            <legend>Radier</legend>
+            <label class="ligne"><span>L<sub>x</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Lx" /></label>
+            <label class="ligne"><span>L<sub>y</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Ly" /></label>
+            <label class="ligne"><span>Épaisseur t (m)</span><input type="text" inputmode="decimal" data-champ="t" /></label>
+            <label class="ligne"><span>E du béton (GPa)</span><input type="text" inputmode="decimal" data-champ="E" /></label>
+            <label class="ligne"><span>ν du béton</span><input type="text" inputmode="decimal" data-champ="nu" /></label>
+            <label class="coche"><input type="checkbox" data-champ="poidsPropre" /> Poids propre compté (25 kN/m³)</label>
+            <label class="ligne"><span>Maillage h (m)</span><input type="text" inputmode="decimal" data-champ="maillage" /></label>
+            <p class="source">Éléments de plaque mince rectangulaires (ACM, 12 degrés de liberté). Un maillage de l’ordre de la taille des poteaux suffit ; 20 000 nœuds au plus.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Sol</legend>
+            <label class="ligne"><span>k (kN/m³)</span><input type="text" inputmode="decimal" data-champ="k" /></label>
+            <p class="sous-titre-champ">Aide au choix de k</p>
+            <label class="ligne"><span>E′ du sol (MPa)</span><input type="text" inputmode="decimal" data-champ="Esol" /></label>
+            <label class="ligne"><span>ν du sol</span><input type="text" inputmode="decimal" data-champ="nuSol" /></label>
+            <p class="source" data-role="aide-k"></p>
+            <div class="boutons"><button type="button" data-action="proposer-k">Reprendre k (B.16)</button></div>
+            <label class="coche"><input type="checkbox" data-champ="bord" /> Bande de bord plus raide</label>
+            <div data-si-bord>
+              <label class="ligne"><span>Largeur de la bande (m)</span><input type="text" inputmode="decimal" data-champ="bordLargeur" /></label>
+              <label class="ligne"><span>Facteur sur k</span><input type="text" inputmode="decimal" data-champ="bordFacteur" /></label>
+            </div>
+            <p class="source">5.5.6, note 3 : des ressorts uniformes sous-estiment les effets de bord. Largeur et facteur sont saisis, la norme ne donne pas de valeur.</p>
+            <label class="coche"><input type="checkbox" data-champ="decollement" /> Décollement (ressorts sans traction)</label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Charges</legend>
+            <p class="sous-titre-champ">Poteaux : centre x, y et section a × b (m), charges G et Q (kN)</p>
+            <div data-role="poteaux"></div>
+            <div class="boutons"><button type="button" data-action="ajouter-poteau">+ poteau</button></div>
+            <div class="grille">
+              <label class="ligne"><span>Grille : x (m)</span><input type="text" data-role="grille-x" value="1 ; 6 ; 11" /></label>
+              <label class="ligne"><span>Grille : y (m)</span><input type="text" data-role="grille-y" value="1 ; 6,5 ; 11,5 ; 17" /></label>
+              <div class="boutons"><button type="button" data-action="grille-poteaux">Remplacer par la grille</button></div>
+            </div>
+            <p class="sous-titre-champ">Voiles : de (x₁ ; y₁) à (x₂ ; y₂) en m, charges g et q (kN/m)</p>
+            <div data-role="voiles"></div>
+            <div class="boutons"><button type="button" data-action="ajouter-voile">+ voile</button></div>
+            <p class="sous-titre-champ">Charge répartie (kPa)</p>
+            <div class="trois"><span></span><b>G</b><b>Q</b></div>
+            <div class="trois"><span>Surface</span><input type="text" inputmode="decimal" data-champ="surfG" /><input type="text" inputmode="decimal" data-champ="surfQ" /></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Vérifications</legend>
+            <label class="ligne"><span>q<sub>Rd</sub> du sol (kPa)</span><input type="text" inputmode="decimal" data-champ="qRd" /></label>
+            <p class="source">Portance de calcul, par exemple de l’outil Fondations superficielles. Vide : pas de vérification.</p>
+            <label class="ligne"><span>Tassement admissible (mm)</span><input type="text" inputmode="decimal" data-champ="wAdm" /></label>
+            <label class="ligne"><span>Distorsion admissible β</span><input type="text" data-champ="betaAdm" /></label>
+            <p class="source">1/500 : valeur courante de l’EN 1997-1:2004, annexe H, à confirmer pour l’ouvrage.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Génération d’Eurocode</legend>
+            <div class="generations">
+              <button type="button" data-generation="1re">1<sup>re</sup> (EN 1997-1:2004)</button>
+              <button type="button" data-generation="2e">2<sup>e</sup> (EN 1997-3:2025)</button>
+            </div>
+            <p class="avertissement" data-role="bandeau-2e-gen" hidden></p>
+            <div data-groupe="1re">
+              <label class="ligne">
+                <span>Profil normatif</span>
+                <select data-champ="profilNormatif">
+                  <option value="recommande">Recommandé</option>
+                  <option value="anb2022">ANB 2022</option>
+                </select>
+              </label>
+              <div data-si-profil="recommande">
+                <label class="ligne">
+                  <span>Approche</span>
+                  <select data-champ="approche1">
+                    <option value="DA1">DA1</option>
+                    <option value="DA2">DA2</option>
+                    <option value="DA3">DA3</option>
+                  </select>
+                </label>
+              </div>
+              <div data-si-profil="anb2022">
+                <label class="ligne">
+                  <span>Risque</span>
+                  <select data-champ="risque">
+                    <option value="faible">Faible</option>
+                    <option value="normal">Normal</option>
+                    <option value="eleve">Élevé</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div data-groupe="2e">
+              <label class="ligne">
+                <span>Classe de conséquences</span>
+                <select data-champ="consequences">
+                  <option value="CC1">CC1</option>
+                  <option value="CC2">CC2</option>
+                  <option value="CC3">CC3</option>
+                </select>
+              </label>
+            </div>
+            <p class="source">Effets dans le radier : combinaisons du jeu « structure » de sol-ec7 ; k n’est pas pondéré. ELS : caractéristique G + Q.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Cartouche</legend>
+            <label class="ligne"><span>Projet</span><input type="text" data-role="projet" /></label>
+            <label class="ligne"><span>Élément</span><input type="text" data-role="element" /></label>
+          </fieldset>
+        </form>
+      </section>
+
+      <section id="resultat" aria-label="Résultats">
+        <div class="sorties">
+          <b>Sorties</b>
+          <div class="boutons">
+            <button type="button" class="principal" data-action="exporter-note-pdf">Note de calcul (PDF)</button>
+            <button type="button" data-action="exporter-note">Note de calcul (HTML)</button>
+            <button type="button" data-action="exporter-carte">Carte (SVG)</button>
+            <button type="button" data-action="exporter-resultats">Résultats (CSV)</button>
+            <button type="button" data-action="enregistrer">Saisie (JSON)</button>
+            <button type="button" data-action="reinitialiser">Réinitialiser</button>
+            <label class="bouton-fichier">
+              Ouvrir…
+              <input type="file" accept="application/json,.json" data-role="ouvrir" hidden />
+            </label>
+          </div>
+          <p class="source">La note commune de la suite : données, poteaux et voiles, coefficients avec leurs sources, cartes en plan, moments de calcul et tassements des poteaux, vérifications avec leur taux. Imprimable en PDF.</p>
+        </div>
+
+        <div class="visuels" aria-label="Carte en plan">
+          <div class="outils">
+            <span class="titre">Carte</span>
+            <span class="vues" data-role="vues"></span>
+            <span class="vues" data-role="combinaisons"></span>
+            <label><input type="checkbox" data-option="poteaux" checked /> poteaux</label>
+            <label><input type="checkbox" data-option="maillage" /> maillage</label>
+            <label><input type="checkbox" data-option="decolle" checked /> zone décollée</label>
+          </div>
+          <div class="dessin" data-role="carte"></div>
+          <div class="legende"><span>Vue en plan : x vers la droite, y vers le haut.</span><span><b>m &gt; 0</b> : face inférieure tendue.</span></div>
+        </div>
+
+        <div data-role="verdicts"></div>
+        <div data-role="volets"></div>
+      </section>
+    </main>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

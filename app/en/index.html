@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="../icone.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="../icone-192.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Raft — raft on springs (EN 1997)</title>
+    <meta
+      name="description"
+      content="Rectangular raft on Winkler springs with uplift: settlements, ground pressure and Wood-Armer design moments according to Eurocode 7."
+    />
+    <meta name="theme-color" content="#f7f7f6" />
+  </head>
+  <body>
+    <div class="barre">
+      <div class="barre-corps">
+        <span class="barre-nom">webaedificium</span>
+        <div class="barre-actions">
+          <a class="barre-lien" href="https://henri421.github.io/WebAedificium/en/" target="_blank" rel="noopener">Suite</a>
+          <a class="barre-langue" href="../" hreflang="fr" lang="fr">FR</a>
+        </div>
+      </div>
+    </div>
+
+    <header>
+      <h1>Raft</h1>
+      <p class="sous-titre">
+        Rectangular raft on Winkler springs with uplift: settlements, ground pressure, Wood-Armer design moments (EN 1997-3, 5.2.4.2, 5.5.6 and Annex B), to the 2004 or the 2025 Eurocode 7.
+      </p>
+      <p class="avertissement">
+        Not covered: arbitrary outline and openings, coupled soil (Boussinesq), piled raft, variable thickness, reinforcement and punching (EC2 and Punching tools), dynamic effects, swelling.
+      </p>
+    </header>
+    <div class="feuilles" data-role="feuilles"></div>
+
+    <main>
+      <section id="saisie" aria-label="Input">
+        <form id="formulaire" autocomplete="off" novalidate>
+          <p data-role="erreur" class="erreur" role="alert" hidden></p>
+
+          <fieldset>
+            <legend>Raft</legend>
+            <label class="ligne"><span>L<sub>x</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Lx" /></label>
+            <label class="ligne"><span>L<sub>y</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Ly" /></label>
+            <label class="ligne"><span>Thickness t (m)</span><input type="text" inputmode="decimal" data-champ="t" /></label>
+            <label class="ligne"><span>Concrete E (GPa)</span><input type="text" inputmode="decimal" data-champ="E" /></label>
+            <label class="ligne"><span>Concrete ν</span><input type="text" inputmode="decimal" data-champ="nu" /></label>
+            <label class="coche"><input type="checkbox" data-champ="poidsPropre" /> Self-weight included (25 kN/m³)</label>
+            <label class="ligne"><span>Mesh size h (m)</span><input type="text" inputmode="decimal" data-champ="maillage" /></label>
+            <p class="source">Rectangular thin plate finite cells (ACM, 12 degrees of freedom). A mesh close to the column size is enough, with at most 20 thousand nodes.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Ground</legend>
+            <label class="ligne"><span>k (kN/m³)</span><input type="text" inputmode="decimal" data-champ="k" /></label>
+            <p class="sous-titre-champ">Help to choose k</p>
+            <label class="ligne"><span>Ground E′ (MPa)</span><input type="text" inputmode="decimal" data-champ="Esol" /></label>
+            <label class="ligne"><span>Ground ν</span><input type="text" inputmode="decimal" data-champ="nuSol" /></label>
+            <p class="source" data-role="aide-k"></p>
+            <div class="boutons"><button type="button" data-action="proposer-k">Use k (B.16)</button></div>
+            <label class="coche"><input type="checkbox" data-champ="bord" /> Stiffer edge strip</label>
+            <div data-si-bord>
+              <label class="ligne"><span>Strip width (m)</span><input type="text" inputmode="decimal" data-champ="bordLargeur" /></label>
+              <label class="ligne"><span>Factor on k</span><input type="text" inputmode="decimal" data-champ="bordFacteur" /></label>
+            </div>
+            <p class="source">5.5.6, Note 3: uniform springs underestimate edge effects. Width and factor are input; the standard gives no value.</p>
+            <label class="coche"><input type="checkbox" data-champ="decollement" /> Uplift (no-tension springs)</label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Loads</legend>
+            <p class="sous-titre-champ">Columns: centre x, y and section a × b (m), loads G and Q (kN)</p>
+            <div data-role="poteaux"></div>
+            <div class="boutons"><button type="button" data-action="ajouter-poteau">+ column</button></div>
+            <div class="grille">
+              <label class="ligne"><span>Grid: x (m)</span><input type="text" data-role="grille-x" value="1 ; 6 ; 11" /></label>
+              <label class="ligne"><span>Grid: y (m)</span><input type="text" data-role="grille-y" value="1 ; 6,5 ; 11,5 ; 17" /></label>
+              <div class="boutons"><button type="button" data-action="grille-poteaux">Replace by the grid</button></div>
+            </div>
+            <p class="sous-titre-champ">Walls: from (x₁; y₁) to (x₂; y₂) in m, loads g and q (kN/m)</p>
+            <div data-role="voiles"></div>
+            <div class="boutons"><button type="button" data-action="ajouter-voile">+ wall</button></div>
+            <p class="sous-titre-champ">Distributed load (kPa)</p>
+            <div class="trois"><span></span><b>G</b><b>Q</b></div>
+            <div class="trois"><span>Surface</span><input type="text" inputmode="decimal" data-champ="surfG" /><input type="text" inputmode="decimal" data-champ="surfQ" /></div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Checks</legend>
+            <label class="ligne"><span>Ground q<sub>Rd</sub> (kPa)</span><input type="text" inputmode="decimal" data-champ="qRd" /></label>
+            <p class="source">Design bearing capacity, for instance from the Shallow foundations tool. Empty: no check.</p>
+            <label class="ligne"><span>Allowable settlement (mm)</span><input type="text" inputmode="decimal" data-champ="wAdm" /></label>
+            <label class="ligne"><span>Allowable distortion β</span><input type="text" data-champ="betaAdm" /></label>
+            <p class="source">1/500: common value from EN 1997-1:2004, Annex H, to be confirmed for the structure.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Eurocode version</legend>
+            <div class="generations">
+              <button type="button" data-generation="1re">1<sup>st</sup> (EN 1997-1:2004)</button>
+              <button type="button" data-generation="2e">2<sup>nd</sup> (EN 1997-3:2025)</button>
+            </div>
+            <p class="avertissement" data-role="bandeau-2e-gen" hidden></p>
+            <div data-groupe="1re">
+              <label class="ligne">
+                <span>Normative profile</span>
+                <select data-champ="profilNormatif">
+                  <option value="recommande">Recommended</option>
+                  <option value="anb2022">ANB 2022</option>
+                </select>
+              </label>
+              <div data-si-profil="recommande">
+                <label class="ligne">
+                  <span>Approach</span>
+                  <select data-champ="approche1">
+                    <option value="DA1">DA1</option>
+                    <option value="DA2">DA2</option>
+                    <option value="DA3">DA3</option>
+                  </select>
+                </label>
+              </div>
+              <div data-si-profil="anb2022">
+                <label class="ligne">
+                  <span>Risk</span>
+                  <select data-champ="risque">
+                    <option value="faible">Low</option>
+                    <option value="normal">Normal</option>
+                    <option value="eleve">High</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div data-groupe="2e">
+              <label class="ligne">
+                <span>Consequence class</span>
+                <select data-champ="consequences">
+                  <option value="CC1">CC1</option>
+                  <option value="CC2">CC2</option>
+                  <option value="CC3">CC3</option>
+                </select>
+              </label>
+            </div>
+            <p class="source">Effects in the raft: “structure” set combinations from sol-ec7; k is not factored. SLS: characteristic G + Q.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Title block</legend>
+            <label class="ligne"><span>Project</span><input type="text" data-role="projet" /></label>
+            <label class="ligne"><span>Member</span><input type="text" data-role="element" /></label>
+          </fieldset>
+        </form>
+      </section>
+
+      <section id="resultat" aria-label="Results">
+        <div class="sorties">
+          <b>Outputs</b>
+          <div class="boutons">
+            <button type="button" class="principal" data-action="exporter-note-pdf">Calculation note (PDF)</button>
+            <button type="button" data-action="exporter-note">Calculation note (HTML)</button>
+            <button type="button" data-action="exporter-carte">Map (SVG)</button>
+            <button type="button" data-action="exporter-resultats">Results (CSV)</button>
+            <button type="button" data-action="enregistrer">Input (JSON)</button>
+            <button type="button" data-action="reinitialiser">Reset</button>
+            <label class="bouton-fichier">
+              Open…
+              <input type="file" accept="application/json,.json" data-role="ouvrir" hidden />
+            </label>
+          </div>
+          <p class="source">The common note of the suite: input, columns and walls, factors with their sources, plan maps, design moments and column settlements, checks with their ratio. Printable as PDF.</p>
+        </div>
+
+        <div class="visuels" aria-label="Plan map">
+          <div class="outils">
+            <span class="titre">Map</span>
+            <span class="vues" data-role="vues"></span>
+            <span class="vues" data-role="combinaisons"></span>
+            <label><input type="checkbox" data-option="poteaux" checked /> columns</label>
+            <label><input type="checkbox" data-option="maillage" /> mesh</label>
+            <label><input type="checkbox" data-option="decolle" checked /> uplifted zone</label>
+          </div>
+          <div class="dessin" data-role="carte"></div>
+          <div class="legende"><span>Plan view: x to the right, y upwards.</span><span><b>m &gt; 0</b> : bottom face in tension.</span></div>
+        </div>
+
+        <div data-role="verdicts"></div>
+        <div data-role="volets"></div>
+      </section>
+    </main>
+    <script type="module" src="../src/main.ts"></script>
+  </body>
+</html>

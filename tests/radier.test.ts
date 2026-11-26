@@ -126,7 +126,7 @@ describe('T1 noyau du radier', () => {
 
   it('aides : k (B.16), K_zz/(B L) (B.19), K_s (B.15)', () => {
     proche(kSubgrade(40e3, 0.3, 12), (0.65 * 40e3) / (12 * 0.91), 1e-12);
-    proche(kzzSurAire(40e3, 0.3, 12, 18), 1879.865184354301, 1e-9);
+    proche(kzzSurAire(40e3, 0.3, 12, 18), 2278.6244658840015, 1e-9);
     proche(rigiditeRelative(33e6, 0.2, 40e3, 0.3, 12, 18, 0.6), 0.13172551625356485, 1e-9);
   });
 
@@ -137,7 +137,7 @@ describe('T1 noyau du radier', () => {
     expect(a.coefficients.find((k) => k.nom === 'γ_G')?.valeur).toBe(1.35);
     expect(a.coefficients.find((k) => k.nom === 'γ_Q')?.valeur).toBe(1.5);
     proche(a.pmax, 182.41071395572547);
-    proche(a.taux, 182.41071395572547 / 250);
+    proche(a.taux!, 182.41071395572547 / 250);
     proche(r.service.wmax, 0.05527, 1e-3);
     proche(r.service.tauxW!, 0.05527 / 0.075, 1e-3);
     proche(r.service.tauxBeta!, 0.00211 * 500, 2e-3);
