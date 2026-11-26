@@ -17,6 +17,10 @@ export interface Saisie {
   /** Module du beton (GPa). */
   E: string;
   nu: string;
+  /** Contour : points « x ; y » separes par « / » ; vide : le rectangle L_x × L_y. */
+  contour: string;
+  /** Ouvertures separees par « / » : « x1 ; y1 ; x2 ; y2 » (rectangle) ou une liste de points. */
+  ouvertures: string;
   poidsPropre: boolean;
   maillage: string;
   /** Module de reaction (kN/m3). */
@@ -67,6 +71,8 @@ export function saisieParDefaut(): Saisie {
     t: '0,6',
     E: '33',
     nu: '0,2',
+    contour: '',
+    ouvertures: '',
     poidsPropre: true,
     maillage: '0,5',
     k: '2381',
@@ -91,7 +97,57 @@ export function saisieParDefaut(): Saisie {
   };
 }
 
+/** Exemple a voiles : radier en L avec une fosse d'ascenseur, voiles de facade et de refend. */
+export function saisieExempleVoiles(): Saisie {
+  const v = (x1: string, y1: string, x2: string, y2: string, g: string, q: string): SaisieVoile => ({ x1, y1, x2, y2, g, q });
+  return {
+    ...saisieParDefaut(),
+    Lx: '20', Ly: '14', t: '0,5',
+    contour: '0 ; 0 / 20 ; 0 / 20 ; 8 / 10 ; 8 / 10 ; 14 / 0 ; 14',
+    ouvertures: '2 ; 9 ; 4 ; 11',
+    k: '1786', Esol: '25',
+    poteaux: [],
+    voiles: [
+      v('0,1', '0,1', '19,9', '0,1', '80', '20'),
+      v('19,9', '0,1', '19,9', '7,9', '80', '20'),
+      v('19,9', '7,9', '9,9', '7,9', '80', '20'),
+      v('9,9', '7,9', '9,9', '13,9', '80', '20'),
+      v('9,9', '13,9', '0,1', '13,9', '80', '20'),
+      v('0,1', '13,9', '0,1', '0,1', '80', '20'),
+      v('6', '0,1', '6', '13,9', '120', '40'),
+      v('14', '0,1', '14', '7,9', '120', '40'),
+    ],
+    qRd: '200', wAdm: '50',
+  };
+}
+
 class Refus extends Error {}
+
+/** Liste de points « x ; y / x ; y / … » ; vide : null. */
+function points(brut: string, champ: string, parPoint: boolean): [number, number][][] | null {
+  const morceaux = brut.split(/[/\n]/).map((m) => m.trim()).filter((m) => m !== '');
+  if (morceaux.length === 0) return null;
+  const lire = (m: string): number[] => m.split(';').map((v) => {
+    const n = lireNombre(v.trim());
+    if (n === null) throw new Refus(textes().refus.nombre(champ, m));
+    return n;
+  });
+  if (parPoint) {
+    return [morceaux.map((m) => {
+      const v = lire(m);
+      if (v.length !== 2) throw new Refus(textes().refus.liste(champ, m));
+      return [v[0], v[1]];
+    })];
+  }
+  return morceaux.map((m) => {
+    const v = lire(m);
+    if (v.length === 4) return [[v[0], v[1]], [v[2], v[1]], [v[2], v[3]], [v[0], v[3]]];
+    if (v.length < 6 || v.length % 2 !== 0) throw new Refus(textes().refus.liste(champ, m));
+    const poly: [number, number][] = [];
+    for (let i = 0; i < v.length; i += 2) poly.push([v[i], v[i + 1]]);
+    return poly;
+  });
+}
 
 function nb(brut: string, champ: string): number {
   const v = lireNombre(brut);
@@ -158,6 +214,8 @@ export function lireSaisie(s: Saisie): Lecture {
       k: nb(s.k, c.k),
       maillage: nb(s.maillage, c.maillage),
       poidsPropre: s.poidsPropre,
+      contour: points(s.contour, c.contour, true)?.[0] ?? null,
+      ouvertures: points(s.ouvertures, c.ouvertures, false) ?? [],
       decollement: s.decollement,
       bord: s.bord ? { largeur: nb(s.bordLargeur, c.bordLargeur), facteur: nb(s.bordFacteur, c.bordFacteur) } : null,
       poteaux,
@@ -209,6 +267,23 @@ export function ajouterVoile(s: Saisie): Saisie {
 
 export function retirerVoile(s: Saisie, i: number): Saisie {
   return { ...s, voiles: s.voiles.filter((_, j) => j !== i).map((v) => ({ ...v })) };
+}
+
+/** Remplace les voiles par des files sur la grille : une par abscisse (de y min a y max), une par ordonnee. */
+export function grilleVoiles(s: Saisie, xs: string, ys: string): Saisie {
+  const liste = (t: string) => t.split(';').map((v) => v.trim()).filter((v) => v !== '');
+  const lx = liste(xs);
+  const ly = liste(ys);
+  if (lx.length === 0 || ly.length === 0) return s;
+  const m = s.voiles[0] ?? { g: '0', q: '0' };
+  const tri = (l: string[]) => [...l].sort((a, b) => (lireNombre(a) ?? 0) - (lireNombre(b) ?? 0));
+  const [x0, x1] = [tri(lx)[0], tri(lx)[lx.length - 1]];
+  const [y0, y1] = [tri(ly)[0], tri(ly)[ly.length - 1]];
+  const voiles: SaisieVoile[] = [
+    ...lx.map((x) => ({ x1: x, y1: y0, x2: x, y2: y1, g: m.g, q: m.q })),
+    ...ly.map((y) => ({ x1: x0, y1: y, x2: x1, y2: y, g: m.g, q: m.q })),
+  ];
+  return { ...s, voiles };
 }
 
 /** Remplace les poteaux par la grille xs × ys (listes « 1 ; 6 ; 11 ») ; a, b, G, Q du premier poteau. */

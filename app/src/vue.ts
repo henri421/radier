@@ -23,6 +23,7 @@ export function noeudLePlusProche(c: Champ, x: number, y: number): number {
   let best = 0;
   let dmin = Infinity;
   for (let i = 0; i < c.xs.length; i += 1) {
+    if (!c.dans[i]) continue;
     const d = (c.xs[i] - x) * (c.xs[i] - x) + (c.ys[i] - y) * (c.ys[i] - y);
     if (d < dmin) { dmin = d; best = i; }
   }
@@ -43,6 +44,8 @@ export function entreesParSection(c: Calcul): Record<'geometrie' | 'materiaux' |
   const geometrie = [
     ligne('L_x', ch.Lx, `${aff(d.Lx, 3)} m`),
     ligne('L_y', ch.Ly, `${aff(d.Ly, 3)} m`),
+    ...(d.contour ? [ligne('', ch.contour, d.contour.map((p) => point(p)).join(' – '))] : []),
+    ...((d.ouvertures ?? []).length > 0 ? [ligne('', ch.ouvertures, (d.ouvertures ?? []).map((o) => o.map((p) => point(p)).join(' – ')).join(' ; '))] : []),
     ligne('t', ch.t, `${aff(d.t, 3)} m`),
     ligne('h', ch.maillage, `${aff(d.maillage, 3)} m`),
   ];
@@ -161,7 +164,7 @@ export function verdictsHtml(c: Calcul, r: Resultat): string {
   const m = r.moments;
   html += rendreCarte({
     titre: echapper(v.moments), clause: 'Wood-Armer',
-    corps: texte(v.momentsCorps(aff(m.infX, 1), aff(m.infY, 1), aff(m.supX, 1), aff(m.supY, 1), m.combinaison)),
+    corps: texte(v.momentsCorps(aff(m.infX, 1), aff(m.infY, 1), aff(m.supX, 1), aff(m.supY, 1), d.poteaux.length > 0 ? v.lisses(m.combinaison) : v.sansPoteaux(m.combinaison))),
     controle: null, gouvernant: false, verification: 'moments',
   });
 
@@ -179,7 +182,7 @@ export function verdictsHtml(c: Calcul, r: Resultat): string {
     corps: s.entre === null
       ? echapper(v.distorsionSans)
       : texte(v.distorsionCorps(unSur(s.beta), point(s.entre[0]), point(s.entre[1]), d.verifications.betaAdm === null ? '—' : unSur(d.verifications.betaAdm))),
-    controle: s.entre === null ? null : s.tauxBeta, gouvernant: gouv('Distorsion entre poteaux'), verification: 'Distorsion entre poteaux',
+    controle: s.entre === null ? null : s.tauxBeta, gouvernant: gouv('Distorsion angulaire'), verification: 'Distorsion angulaire',
   });
 
   if (r.alertes.length > 0) {

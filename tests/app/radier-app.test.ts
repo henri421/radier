@@ -135,7 +135,7 @@ describe('T3 dessin et note', () => {
     expect(texte).toMatch(/"titre":"Tassements des poteaux[^"]*"/);
     expect(texte).toMatch(/"titre":"Moments de calcul[^"]*"/);
     expect(Object.values(n.sections).flat().some((e) => e.type === 'figure')).toBe(true);
-    expect(n.verifications.map((v) => v.nom)).toEqual(['Pression du sol · (a)', 'Pression du sol · (b)', 'Tassement maximal', 'Distorsion entre poteaux']);
+    expect(n.verifications.map((v) => v.nom)).toEqual(['Pression du sol · (a)', 'Pression du sol · (b)', 'Tassement maximal', 'Distorsion angulaire']);
     const sans = calcul({ ...saisieParDefaut(), qRd: '', wAdm: '', betaAdm: '' });
     expect(noteDuCalcul(sans, verifier(sans), cartouche).verifications).toEqual([]);
   });

@@ -70,7 +70,7 @@ export function carteRadier(calcul: Calcul, r: Resultat, o: OptionsCarte): strin
   const d = calcul.donnees;
   const champ = champDeVue(r, o.combinaison);
   const v = valeursDeVue(champ, o.vue);
-  const ech = couleurs(o.vue, v);
+  const ech = couleurs(o.vue, v.filter((_, n) => champ.dans[n]));
 
   const S = Math.min(LARGEUR / d.Lx, HAUTEUR / d.Ly);
   const W = d.Lx * S;
@@ -79,34 +79,46 @@ export function carteRadier(calcul: Calcul, r: Resultat, o: OptionsCarte): strin
   const Y = (y: number) => PAD.haut + (d.Ly - y) * S;
   const hx = d.Lx / champ.nx;
   const hy = d.Ly / champ.ny;
-  const cellule = (i: number) => {
-    const x0 = Math.max(0, champ.xs[i] - hx / 2);
-    const x1 = Math.min(d.Lx, champ.xs[i] + hx / 2);
-    const y0 = Math.max(0, champ.ys[i] - hy / 2);
-    const y1 = Math.min(d.Ly, champ.ys[i] + hy / 2);
-    return `x="${a(X(x0))}" y="${a(Y(y1))}" width="${a((x1 - x0) * S + 0.3)}" height="${a((y1 - y0) * S + 0.3)}"`;
-  };
+  /** Quarts des mailles actives autour de chaque noeud : l'aire tributaire, coupee au contour. */
+  const quarts: { n: number; x0: number; y0: number }[] = [];
+  for (let j = 0; j < champ.ny; j += 1) {
+    for (let i = 0; i < champ.nx; i += 1) {
+      if (!champ.cellules[j * champ.nx + i]) continue;
+      for (const [di, dj] of [[0, 0], [1, 0], [1, 1], [0, 1]] as const) {
+        quarts.push({ n: (j + dj) * (champ.nx + 1) + i + di, x0: (i + di * 0.5) * hx, y0: (j + dj * 0.5) * hy });
+      }
+    }
+  }
+  const quart = (q: { x0: number; y0: number }) =>
+    `x="${a(X(q.x0))}" y="${a(Y(q.y0 + hy / 2))}" width="${a((hx / 2) * S + 0.3)}" height="${a((hy / 2) * S + 0.3)}"`;
+  const contour: [number, number][] = d.contour ?? [[0, 0], [d.Lx, 0], [d.Lx, d.Ly], [0, d.Ly]];
+  const polygone = (poly: [number, number][], classe: string) =>
+    `<polygon class="${classe}" points="${poly.map(([x, y]) => `${a(X(x))},${a(Y(y))}`).join(' ')}"/>`;
 
   const parts: string[] = [];
   parts.push(`<text x="${a(PAD.gauche)}" y="20" class="titre-carte">${notationSvg(t.titre[o.vue])}</text>`);
   parts.push('<g data-role="carte">');
-  for (let i = 0; i < v.length; i += 1) parts.push(`<rect ${cellule(i)} fill="${ech.couleur(v[i])}"/>`);
+  for (const q of quarts) parts.push(`<rect ${quart(q)} fill="${ech.couleur(v[q.n])}"/>`);
   parts.push('</g>');
 
   if (o.maillage) {
     parts.push('<g data-role="maillage" class="maillage">');
-    for (let i = 0; i <= champ.nx; i += 1) parts.push(`<line x1="${a(X(i * hx))}" y1="${a(Y(0))}" x2="${a(X(i * hx))}" y2="${a(Y(d.Ly))}"/>`);
-    for (let j = 0; j <= champ.ny; j += 1) parts.push(`<line x1="${a(X(0))}" y1="${a(Y(j * hy))}" x2="${a(X(d.Lx))}" y2="${a(Y(j * hy))}"/>`);
+    for (let j = 0; j < champ.ny; j += 1) {
+      for (let i = 0; i < champ.nx; i += 1) {
+        if (champ.cellules[j * champ.nx + i]) parts.push(`<rect x="${a(X(i * hx))}" y="${a(Y((j + 1) * hy))}" width="${a(hx * S)}" height="${a(hy * S)}"/>`);
+      }
+    }
     parts.push('</g>');
   }
 
-  if (o.decolle && champ.actif.some((x) => !x)) {
+  if (o.decolle && champ.actif.some((x, n) => champ.dans[n] && !x)) {
     parts.push(`<g data-role="decolle" class="decolle"><title>${t.decolle}</title>`);
-    champ.actif.forEach((x, i) => { if (!x) parts.push(`<rect ${cellule(i)}/>`); });
+    for (const q of quarts) if (!champ.actif[q.n]) parts.push(`<rect ${quart(q)}/>`);
     parts.push('</g>');
   }
 
-  parts.push(`<rect class="contour" x="${a(X(0))}" y="${a(Y(d.Ly))}" width="${a(W)}" height="${a(H)}"/>`);
+  parts.push(polygone(contour, 'contour'));
+  for (const ouv of d.ouvertures ?? []) parts.push(polygone(ouv, 'contour ouverture'));
 
   for (const w of d.voiles) {
     parts.push(`<line data-role="voile" class="voile" x1="${a(X(w.x1))}" y1="${a(Y(w.y1))}" x2="${a(X(w.x2))}" y2="${a(Y(w.y2))}"/>`);

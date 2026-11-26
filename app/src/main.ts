@@ -26,6 +26,8 @@ import {
   ajouterPoteau,
   ajouterVoile,
   grillePoteaux,
+  grilleVoiles,
+  saisieExempleVoiles,
   lireSaisie,
   proposerK,
   relire,
@@ -286,6 +288,12 @@ document.addEventListener('click', (evenement) => {
     const ys = exige<HTMLInputElement>('[data-role="grille-y"]').value;
     saisie = grillePoteaux(saisie, xs, ys); rendreTables(); return recalculer();
   }
+  if (action === 'grille-voiles') {
+    const xs = exige<HTMLInputElement>('[data-role="grille-x"]').value;
+    const ys = exige<HTMLInputElement>('[data-role="grille-y"]').value;
+    saisie = grilleVoiles(saisie, xs, ys); rendreTables(); return recalculer();
+  }
+  if (action === 'exemple-voiles') { saisie = saisieExempleVoiles(); ecrireSaisie(); return recalculer(); }
   if (action === 'enregistrer') return telecharger('radier.json', serialiser(saisie), 'application/json;charset=utf-8');
   if (action === 'reinitialiser') { saisie = saisieParDefaut(); ecrireSaisie(); return recalculer(); }
 

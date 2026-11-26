@@ -8,7 +8,7 @@
     <title>Raft — raft on springs (EN 1997)</title>
     <meta
       name="description"
-      content="Rectangular raft on Winkler springs with uplift: settlements, ground pressure and Wood-Armer design moments according to Eurocode 7."
+      content="Raft of any outline, with openings, on Winkler springs with uplift, under columns and walls: settlements, ground pressure and Wood-Armer design moments according to Eurocode 7."
     />
     <meta name="theme-color" content="#f7f7f6" />
   </head>
@@ -26,10 +26,10 @@
     <header>
       <h1>Raft</h1>
       <p class="sous-titre">
-        Rectangular raft on Winkler springs with uplift: settlements, ground pressure, Wood-Armer design moments (EN 1997-3, 5.2.4.2, 5.5.6 and Annex B), to the 2004 or the 2025 Eurocode 7.
+        Raft of any outline, with openings, on Winkler springs with uplift, under columns and walls: settlements, ground pressure, Wood-Armer design moments (EN 1997-3, 5.2.4.2, 5.5.6 and Annex B), to the 2004 or the 2025 Eurocode 7.
       </p>
       <p class="avertissement">
-        Not covered: arbitrary outline and openings, coupled soil (Boussinesq), piled raft, variable thickness, reinforcement and punching (EC2 and Punching tools), dynamic effects, swelling.
+        Not covered: coupled soil (Boussinesq), piled raft, variable thickness, reinforcement and punching (EC2 and Punching tools), dynamic effects, swelling.
       </p>
     </header>
     <div class="feuilles" data-role="feuilles"></div>
@@ -43,6 +43,9 @@
             <legend>Raft</legend>
             <label class="ligne"><span>L<sub>x</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Lx" /></label>
             <label class="ligne"><span>L<sub>y</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Ly" /></label>
+            <label class="ligne large"><span>Outline (m)</span><input type="text" data-champ="contour" placeholder="Lx × Ly rectangle" /></label>
+            <label class="ligne large"><span>Openings (m)</span><input type="text" data-champ="ouvertures" /></label>
+            <p class="source">Outline: points “x; y” separated by “/”, inside the L<sub>x</sub> × L<sub>y</sub> rectangle; empty: the whole rectangle. Openings separated by “/”: “x<sub>1</sub>; y<sub>1</sub>; x<sub>2</sub>; y<sub>2</sub>” for a rectangle, or a list of points. A cell counts if its centre lies on the raft.</p>
             <label class="ligne"><span>Thickness t (m)</span><input type="text" inputmode="decimal" data-champ="t" /></label>
             <label class="ligne"><span>Concrete E (GPa)</span><input type="text" inputmode="decimal" data-champ="E" /></label>
             <label class="ligne"><span>Concrete ν</span><input type="text" inputmode="decimal" data-champ="nu" /></label>
@@ -76,11 +79,11 @@
             <div class="grille">
               <label class="ligne"><span>Grid: x (m)</span><input type="text" data-role="grille-x" value="1 ; 6 ; 11" /></label>
               <label class="ligne"><span>Grid: y (m)</span><input type="text" data-role="grille-y" value="1 ; 6,5 ; 11,5 ; 17" /></label>
-              <div class="boutons"><button type="button" data-action="grille-poteaux">Replace by the grid</button></div>
+              <div class="boutons"><button type="button" data-action="grille-poteaux">Columns on the grid</button><button type="button" data-action="grille-voiles">Walls on the grid</button></div>
             </div>
             <p class="sous-titre-champ">Walls: from (x₁; y₁) to (x₂; y₂) in m, loads g and q (kN/m)</p>
             <div data-role="voiles"></div>
-            <div class="boutons"><button type="button" data-action="ajouter-voile">+ wall</button></div>
+            <div class="boutons"><button type="button" data-action="ajouter-voile">+ wall</button><button type="button" data-action="exemple-voiles">Wall example</button></div>
             <p class="sous-titre-champ">Distributed load (kPa)</p>
             <div class="trois"><span></span><b>G</b><b>Q</b></div>
             <div class="trois"><span>Surface</span><input type="text" inputmode="decimal" data-champ="surfG" /><input type="text" inputmode="decimal" data-champ="surfQ" /></div>

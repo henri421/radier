@@ -8,7 +8,7 @@
     <title>Radier — radier sur ressorts (EN 1997)</title>
     <meta
       name="description"
-      content="Radier rectangulaire sur ressorts de Winkler avec décollement : tassements, pression du sol et moments de calcul de Wood-Armer selon l’Eurocode 7."
+      content="Radier de contour quelconque, avec ouvertures, sur ressorts de Winkler avec décollement, sous poteaux et voiles : tassements, pression du sol et moments de calcul de Wood-Armer selon l’Eurocode 7."
     />
     <meta name="theme-color" content="#f7f7f6" />
   </head>
@@ -26,10 +26,10 @@
     <header>
       <h1>Radier</h1>
       <p class="sous-titre">
-        Radier rectangulaire sur ressorts de Winkler avec décollement : tassements, pression du sol, moments de calcul de Wood-Armer (EN 1997-3, 5.2.4.2, 5.5.6 et annexe B), en 1<sup>re</sup> ou 2<sup>e</sup> génération.
+        Radier de contour quelconque, avec ouvertures, sur ressorts de Winkler avec décollement, sous poteaux et voiles : tassements, pression du sol, moments de calcul de Wood-Armer (EN 1997-3, 5.2.4.2, 5.5.6 et annexe B), en 1<sup>re</sup> ou 2<sup>e</sup> génération.
       </p>
       <p class="avertissement">
-        Non traités : contour quelconque et ouvertures, sol couplé (Boussinesq), radier sur pieux, épaisseur variable, ferraillage et poinçonnement (outils EC2 et Poinçonnement), effets dynamiques, gonflement.
+        Non traités : sol couplé (Boussinesq), radier sur pieux, épaisseur variable, ferraillage et poinçonnement (outils EC2 et Poinçonnement), effets dynamiques, gonflement.
       </p>
     </header>
     <div class="feuilles" data-role="feuilles"></div>
@@ -43,6 +43,9 @@
             <legend>Radier</legend>
             <label class="ligne"><span>L<sub>x</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Lx" /></label>
             <label class="ligne"><span>L<sub>y</sub> (m)</span><input type="text" inputmode="decimal" data-champ="Ly" /></label>
+            <label class="ligne large"><span>Contour (m)</span><input type="text" data-champ="contour" placeholder="rectangle Lx × Ly" /></label>
+            <label class="ligne large"><span>Ouvertures (m)</span><input type="text" data-champ="ouvertures" /></label>
+            <p class="source">Contour : points « x ; y » séparés par « / », dans le rectangle L<sub>x</sub> × L<sub>y</sub> ; vide : le rectangle entier. Ouvertures séparées par « / » : « x<sub>1</sub> ; y<sub>1</sub> ; x<sub>2</sub> ; y<sub>2</sub> » pour un rectangle, ou une liste de points. Une maille compte si son centre est sur le radier.</p>
             <label class="ligne"><span>Épaisseur t (m)</span><input type="text" inputmode="decimal" data-champ="t" /></label>
             <label class="ligne"><span>E du béton (GPa)</span><input type="text" inputmode="decimal" data-champ="E" /></label>
             <label class="ligne"><span>ν du béton</span><input type="text" inputmode="decimal" data-champ="nu" /></label>
@@ -76,11 +79,11 @@
             <div class="grille">
               <label class="ligne"><span>Grille : x (m)</span><input type="text" data-role="grille-x" value="1 ; 6 ; 11" /></label>
               <label class="ligne"><span>Grille : y (m)</span><input type="text" data-role="grille-y" value="1 ; 6,5 ; 11,5 ; 17" /></label>
-              <div class="boutons"><button type="button" data-action="grille-poteaux">Remplacer par la grille</button></div>
+              <div class="boutons"><button type="button" data-action="grille-poteaux">Poteaux sur la grille</button><button type="button" data-action="grille-voiles">Voiles sur la grille</button></div>
             </div>
             <p class="sous-titre-champ">Voiles : de (x₁ ; y₁) à (x₂ ; y₂) en m, charges g et q (kN/m)</p>
             <div data-role="voiles"></div>
-            <div class="boutons"><button type="button" data-action="ajouter-voile">+ voile</button></div>
+            <div class="boutons"><button type="button" data-action="ajouter-voile">+ voile</button><button type="button" data-action="exemple-voiles">Exemple à voiles</button></div>
             <p class="sous-titre-champ">Charge répartie (kPa)</p>
             <div class="trois"><span></span><b>G</b><b>Q</b></div>
             <div class="trois"><span>Surface</span><input type="text" inputmode="decimal" data-champ="surfG" /><input type="text" inputmode="decimal" data-champ="surfQ" /></div>

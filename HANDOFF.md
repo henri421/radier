@@ -58,3 +58,27 @@ barre des feuilles comprise), `index.html` FR et EN.
 **Statut.** `npm test` : 24/24 ; `npm run typecheck` : propre ; `npm run build` : propre.
 Banc local FR et EN : aucune erreur de console, valeurs identiques à la référence
 (p_max 182,4 kPa, w_max 55,3 mm, β = 1/475 gouvernant).
+
+## Itération « voiles et contour quelconque » (séance Claude, 26/11/2026)
+
+Demande de l'utilisateur : une version à voiles et des cas plus courants que le rectangle sous poteaux.
+
+**Fichiers.** `src/radier.ts` (contour et ouvertures, mailles actives, distorsion le long des voiles),
+`app/src/form.ts` (champs `contour` et `ouvertures`, `saisieExempleVoiles`, `grilleVoiles`), `textes.ts`,
+`dessin.ts` (seules les mailles du radier, contour et ouvertures tracés), `vue.ts`, `note.ts`, `main.ts`,
+`index.html` FR et EN ; tests `tests/radier-contour.test.ts` et `tests/app/radier-contour-app.test.ts`.
+
+**Décisions.**
+- Maillage rectangulaire sur la boîte L_x × L_y ; une maille est active si son centre est dans le contour
+  et hors des ouvertures. Nœuds hors du radier bloqués (w = 0, sans effet). Contour oblique en escalier,
+  alerte si l'aire maillée s'écarte de plus de 2 % de l'aire vraie.
+- Bande de bord mesurée depuis le contour et les ouvertures.
+- Poteau dont la section déborde du radier, voile qui passe sur une ouverture ou hors du contour : refusés.
+- Distorsion : en plus des poteaux voisins alignés, entre points consécutifs de chaque voile (2 m au plus).
+  Vérification renommée « Distorsion angulaire » (noyau, textes, test T3 ajusté).
+
+**Points douteux.**
+- Sous les voiles, les moments sont nodaux et sensibles au maillage (aucun lissage) ; c'est dit sur la carte.
+- L'aide au choix de k prend B = petit côté de la boîte, pas la largeur d'une aile du contour.
+
+**Statut.** `npm test` : 34/34 ; typecheck propre ; banc local FR et EN vérifié sur l'exemple à voiles.

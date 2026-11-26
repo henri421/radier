@@ -17,12 +17,22 @@ export interface DonneesRadier {
   k: number /* kN/m3 */; maillage: number; poidsPropre: boolean; decollement: boolean;
   bord: { largeur: number; facteur: number } | null; poteaux: Poteau[]; voiles: Voile[];
   surface: { g: number; q: number };
+  /** Contour du radier (polygone, m), dans [0 ; L_x] × [0 ; L_y] ; absent ou null : le rectangle entier. */
+  contour?: [number, number][] | null;
+  /** Ouvertures (polygones, m), retirees du radier. */
+  ouvertures?: [number, number][][];
   verifications: { qRd: number | null; wAdm: number | null /* m */; betaAdm: number | null }; norme: Norme;
 }
 export interface Champ {
   nx: number; ny: number; xs: number[] /* abscisse de chaque noeud */; ys: number[];
   w: number[]; p: number[]; mx: number[]; my: number[]; mxy: number[]; actif: boolean[];
   iterations: number; R: number; Ftot: number;
+  /** Noeud appartenant au radier (au moins une maille active). */
+  dans: boolean[];
+  /** Maille active, indice i + j·n_x. */
+  cellules: boolean[];
+  /** Aire maillee (m²). */
+  aire: number;
 }
 export interface MomentsWA { infX: number; infY: number; supX: number; supY: number }
 export interface CombinaisonRadier {
@@ -220,6 +230,59 @@ export function rigiditeRelative(Ef: number, nuf: number, Eg: number, nug: numbe
 }
 
 // ---------------------------------------------------------------------------
+// Geometrie du contour
+// ---------------------------------------------------------------------------
+
+type Poly = [number, number][];
+
+function contourDe(d: DonneesRadier): Poly {
+  return d.contour && d.contour.length > 0 ? d.contour : [[0, 0], [d.Lx, 0], [d.Lx, d.Ly], [0, d.Ly]];
+}
+
+/** Point dans un polygone (pair-impair). */
+export function dansPolygone(x: number, y: number, poly: Poly): boolean {
+  let dedans = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i];
+    const [xj, yj] = poly[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) dedans = !dedans;
+  }
+  return dedans;
+}
+
+function distanceSegment(x: number, y: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const l2 = dx * dx + dy * dy;
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / l2)) : 0;
+  return Math.hypot(x - x1 - t * dx, y - y1 - t * dy);
+}
+
+/** Distance d'un point au bord d'un polygone. */
+function distanceBord(x: number, y: number, poly: Poly): number {
+  let m = Infinity;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    m = Math.min(m, distanceSegment(x, y, poly[j][0], poly[j][1], poly[i][0], poly[i][1]));
+  }
+  return m;
+}
+
+/** Aire d'un polygone (formule du lacet), en valeur absolue. */
+export function airePolygone(poly: Poly): number {
+  let s = 0;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) s += poly[j][0] * poly[i][1] - poly[i][0] * poly[j][1];
+  return Math.abs(s) / 2;
+}
+
+/** Point sur le radier : dans le contour (bord compris) et pas strictement dans une ouverture. */
+function surLeRadier(x: number, y: number, d: DonneesRadier): boolean {
+  const c = contourDe(d);
+  if (!dansPolygone(x, y, c) && distanceBord(x, y, c) > 1e-6) return false;
+  for (const o of d.ouvertures ?? []) if (dansPolygone(x, y, o) && distanceBord(x, y, o) > 1e-6) return false;
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Validation
 // ---------------------------------------------------------------------------
 
@@ -237,11 +300,21 @@ function valider(d: DonneesRadier): void {
   if ((nx + 1) * (ny + 1) > 20000) throw new Error('Maillage trop fin : plus de 20 000 nœuds.');
   if (d.maillage > Math.min(d.Lx, d.Ly)) throw new Error('Le maillage est plus grand que le radier.');
 
+  const polys: Poly[] = [...(d.contour && d.contour.length > 0 ? [d.contour] : []), ...(d.ouvertures ?? [])];
+  for (const poly of polys) {
+    if (poly.length < 3 || !(airePolygone(poly) > 0)) throw new Error('Contour ou ouverture : au moins trois points non alignés.');
+    for (const [x, y] of poly) {
+      if (!(x >= -1e-9 && x <= d.Lx + 1e-9 && y >= -1e-9 && y <= d.Ly + 1e-9)) {
+        throw new Error('Contour ou ouverture : un point sort du rectangle L_x × L_y.');
+      }
+    }
+  }
+
   d.poteaux.forEach((p, idx) => {
     if (!(p.a > 0) || !(p.b > 0)) {
       throw new Error(`Poteau ${idx + 1} : les dimensions a et b doivent être strictement positives.`);
     }
-    if (p.x < 0 || p.x > d.Lx || p.y < 0 || p.y > d.Ly) {
+    if (p.x < 0 || p.x > d.Lx || p.y < 0 || p.y > d.Ly || !surLeRadier(p.x, p.y, d)) {
       throw new Error(`Poteau ${idx + 1} : hors du radier.`);
     }
   });
@@ -250,8 +323,15 @@ function valider(d: DonneesRadier): void {
     if (!dedans(v.x1, v.y1) || !dedans(v.x2, v.y2)) {
       throw new Error(`Voile ${idx + 1} : hors du radier.`);
     }
-    if (Math.hypot(v.x2 - v.x1, v.y2 - v.y1) === 0) {
+    const L = Math.hypot(v.x2 - v.x1, v.y2 - v.y1);
+    if (L === 0) {
       throw new Error(`Voile ${idx + 1} : longueur nulle.`);
+    }
+    const m = Math.max(2, Math.ceil(L / (d.maillage / 4)));
+    for (let s = 0; s <= m; s++) {
+      if (!surLeRadier(v.x1 + ((v.x2 - v.x1) * s) / m, v.y1 + ((v.y2 - v.y1) * s) / m, d)) {
+        throw new Error(`Voile ${idx + 1} : hors du radier.`);
+      }
     }
   });
   if (d.bord !== null) {
@@ -284,8 +364,27 @@ export function analyseRadier(d: DonneesRadier, gG: number, gQ: number): Champ {
   const stride = bw + 1;
   const base = new Float64Array(nDof * stride);
 
+  // Mailles actives : centre dans le contour et hors des ouvertures.
+  const contour = contourDe(d);
+  const ouvertures = d.ouvertures ?? [];
+  const cellules = new Array<boolean>(nx * ny).fill(false);
+  const dans = new Array<boolean>(N).fill(false);
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
+      const xc = (i + 0.5) * a;
+      const yc = (j + 0.5) * b;
+      const ok = dansPolygone(xc, yc, contour) && !ouvertures.some((o) => dansPolygone(xc, yc, o));
+      cellules[j * nx + i] = ok;
+      if (ok) for (const n of [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)]) dans[n] = true;
+    }
+  }
+  if (!cellules.some((c) => c)) throw new Error('Le contour ne couvre aucune maille.');
+  // Noeuds hors du radier : degres de liberte bloques (w = 0, sans effet sur le reste).
+  for (let n = 0; n < N; n++) if (!dans[n]) for (let c = 0; c < 3; c++) base[(3 * n + c) * stride] = 1;
+
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      if (!cellules[j * nx + i]) continue;
       const ns = [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)];
       const dofs: number[] = [];
       for (const n of ns) for (let c = 0; c < 3; c++) dofs.push(3 * n + c);
@@ -309,31 +408,64 @@ export function analyseRadier(d: DonneesRadier, gG: number, gQ: number): Champ {
   const qS = d.surface.q;
   const pSurf = gG * (gS + (d.poidsPropre ? GAMMA_BETON * t : 0)) + gQ * qS;
 
+  // Bords pour la bande de bord : contour et ouvertures.
+  const bords: Poly[] = [contour, ...ouvertures];
   for (let j = 0; j <= ny; j++) {
     for (let i = 0; i <= nx; i++) {
-      const x = i * a;
-      const y = j * b;
       const n = node(i, j);
-      xs[n] = x;
-      ys[n] = y;
-      const x0 = Math.max(0, x - a / 2), x1 = Math.min(Lx, x + a / 2);
-      const y0 = Math.max(0, y - b / 2), y1 = Math.min(Ly, y + b / 2);
-      trib[n] = (x1 - x0) * (y1 - y0);
-      let kk = d.k;
-      if (d.bord !== null) {
-        const dist = Math.min(x, Lx - x, y, Ly - y);
-        if (dist < d.bord.largeur - 1e-9) kk *= d.bord.facteur;
-      }
-      kn[n] = kk * trib[n];
-      let f = pSurf * trib[n];
-      for (const p of d.poteaux) {
-        const ox = recouvrement(x0, x1, p.x - p.a / 2, p.x + p.a / 2);
-        const oy = recouvrement(y0, y1, p.y - p.b / 2, p.y + p.b / 2);
-        f += (gG * p.G + gQ * p.Q) / (p.a * p.b) * ox * oy;
-      }
-      F[3 * n] = f;
+      xs[n] = i * a;
+      ys[n] = j * b;
     }
   }
+  const chargePoteau = new Float64Array(d.poteaux.length);
+  // Chaque maille active donne un quart a chacun de ses coins : aire, ressort, charges.
+  for (let j = 0; j < ny; j++) {
+    for (let i = 0; i < nx; i++) {
+      if (!cellules[j * nx + i]) continue;
+      for (const [di, dj] of [[0, 0], [1, 0], [1, 1], [0, 1]] as const) {
+        const n = node(i + di, j + dj);
+        const x0 = (i + di * 0.5) * a, x1 = x0 + a / 2;
+        const y0 = (j + dj * 0.5) * b, y1 = y0 + b / 2;
+        trib[n] += (a * b) / 4;
+        let f = (pSurf * a * b) / 4;
+        d.poteaux.forEach((p, k) => {
+          const ox = recouvrement(x0, x1, p.x - p.a / 2, p.x + p.a / 2);
+          const oy = recouvrement(y0, y1, p.y - p.b / 2, p.y + p.b / 2);
+          f += (gG * p.G + gQ * p.Q) / (p.a * p.b) * ox * oy;
+          chargePoteau[k] += ox * oy;
+        });
+        F[3 * n] += f;
+      }
+    }
+  }
+  d.poteaux.forEach((p, k) => {
+    if (chargePoteau[k] < p.a * p.b * (1 - 1e-6)) throw new Error(`Poteau ${k + 1} : section en partie hors du radier.`);
+  });
+  for (let n = 0; n < N; n++) {
+    if (!dans[n]) continue;
+    let kk = d.k;
+    if (d.bord !== null) {
+      let dist = Infinity;
+      for (const poly of bords) dist = Math.min(dist, distanceBord(xs[n], ys[n], poly));
+      if (dist < d.bord.largeur - 1e-9) kk *= d.bord.facteur;
+    }
+    kn[n] = kk * trib[n];
+  }
+
+  /** Noeud du radier le plus proche d'un point (le noeud de grille le plus proche s'il est sur le radier). */
+  const plusProcheDans = (x: number, y: number): number => {
+    const i0 = Math.min(nx, Math.max(0, Math.floor(x / a + 0.5)));
+    const j0 = Math.min(ny, Math.max(0, Math.floor(y / b + 0.5)));
+    if (dans[node(i0, j0)]) return node(i0, j0);
+    let best = -1;
+    let dmin = Infinity;
+    for (let n = 0; n < N; n++) {
+      if (!dans[n]) continue;
+      const dd = (xs[n] - x) ** 2 + (ys[n] - y) ** 2;
+      if (dd < dmin) { dmin = dd; best = n; }
+    }
+    return best;
+  };
 
   for (const v of d.voiles) {
     const L = Math.hypot(v.x2 - v.x1, v.y2 - v.y1);
@@ -341,13 +473,11 @@ export function analyseRadier(d: DonneesRadier, gG: number, gQ: number): Champ {
     for (let s = 0; s < m; s++) {
       const xm = v.x1 + (v.x2 - v.x1) * (s + 0.5) / m;
       const ym = v.y1 + (v.y2 - v.y1) * (s + 0.5) / m;
-      const i = Math.min(nx, Math.max(0, Math.floor(xm / a + 0.5)));
-      const j = Math.min(ny, Math.max(0, Math.floor(ym / b + 0.5)));
-      F[3 * node(i, j)] += (gG * v.g + gQ * v.q) * L / m;
+      F[3 * plusProcheDans(xm, ym)] += (gG * v.g + gQ * v.q) * L / m;
     }
   }
 
-  const actif = new Array<boolean>(N).fill(true);
+  const actif = [...dans];
   let u: Float64Array = new Float64Array(nDof);
   let w = new Float64Array(N);
   let iterations = 0;
@@ -359,7 +489,7 @@ export function analyseRadier(d: DonneesRadier, gG: number, gQ: number): Champ {
     }
     u = resoudreBande(A, F.slice(), nDof, bw);
     for (let n = 0; n < N; n++) w[n] = u[3 * n];
-    const nouv = d.decollement ? Array.from(w, (v) => v > 0) : new Array<boolean>(N).fill(true);
+    const nouv = d.decollement ? Array.from(w, (v, n) => dans[n] && v > 0) : [...dans];
     let change = false;
     for (let n = 0; n < N; n++) if (nouv[n] !== actif[n]) { change = true; break; }
     if (!change) { iterations = it; break; }
@@ -387,6 +517,7 @@ export function analyseRadier(d: DonneesRadier, gG: number, gQ: number): Champ {
   const BcCoins = coins.map(([x, y]) => Bc(x, y));
   for (let j = 0; j < ny; j++) {
     for (let i = 0; i < nx; i++) {
+      if (!cellules[j * nx + i]) continue;
       const ns = [node(i, j), node(i + 1, j), node(i + 1, j + 1), node(i, j + 1)];
       const ue: number[] = [];
       for (const n of ns) ue.push(u[3 * n], u[3 * n + 1], u[3 * n + 2]);
@@ -409,14 +540,15 @@ export function analyseRadier(d: DonneesRadier, gG: number, gQ: number): Champ {
   for (let n = 0; n < N; n++) {
     wOut.push(w[n]);
     pOut.push(p[n]);
-    mx.push(M[3 * n] / cnt[n]);
-    my.push(M[3 * n + 1] / cnt[n]);
-    mxy.push(M[3 * n + 2] / cnt[n]);
+    const c = cnt[n] > 0 ? cnt[n] : 1;
+    mx.push(M[3 * n] / c);
+    my.push(M[3 * n + 1] / c);
+    mxy.push(M[3 * n + 2] / c);
   }
 
   return {
     nx, ny, xs, ys, w: wOut, p: pOut, mx, my, mxy, actif: [...actif],
-    iterations, R, Ftot,
+    iterations, R, Ftot, dans, cellules, aire: cellules.filter((c) => c).length * a * b,
   };
 }
 
@@ -473,7 +605,7 @@ export function momentsDeCalcul(d: DonneesRadier, c: Champ): { calcul: MomentsWA
   for (const p of d.poteaux) {
     const s: number[] = [];
     for (let n = 0; n < N; n++) {
-      if (Math.abs(c.xs[n] - p.x) <= p.a / 2 + d.t + 1e-9
+      if (c.dans[n] && Math.abs(c.xs[n] - p.x) <= p.a / 2 + d.t + 1e-9
         && Math.abs(c.ys[n] - p.y) <= p.b / 2 + d.t + 1e-9) {
         s.push(n);
       }
@@ -484,7 +616,7 @@ export function momentsDeCalcul(d: DonneesRadier, c: Champ): { calcul: MomentsWA
 
   const extremes = (cle: keyof MomentsWA, f: (a: number, b: number) => number): number => {
     const vals: number[] = [];
-    for (let n = 0; n < N; n++) if (!dans[n]) vals.push(wa[n][cle]);
+    for (let n = 0; n < N; n++) if (!dans[n] && c.dans[n]) vals.push(wa[n][cle]);
     for (const s of carres) {
       let somme = 0;
       for (const n of s) somme += wa[n][cle];
@@ -502,28 +634,41 @@ export function momentsDeCalcul(d: DonneesRadier, c: Champ): { calcul: MomentsWA
     supX: extremes('supX', Math.min),
     supY: extremes('supY', Math.min),
   };
+  const waR = wa.filter((_, n) => c.dans[n]);
   const pic: MomentsWA = {
-    infX: Math.max(...wa.map((m) => m.infX)),
-    infY: Math.max(...wa.map((m) => m.infY)),
-    supX: Math.min(...wa.map((m) => m.supX)),
-    supY: Math.min(...wa.map((m) => m.supY)),
+    infX: Math.max(...waR.map((m) => m.infX)),
+    infY: Math.max(...waR.map((m) => m.infY)),
+    supX: Math.min(...waR.map((m) => m.supX)),
+    supY: Math.min(...waR.map((m) => m.supY)),
   };
   return { calcul, pic };
 }
 
 // ---------------------------------------------------------------------------
-// Distorsion entre poteaux
+// Distorsion angulaire (poteaux voisins alignés, points des voiles)
 // ---------------------------------------------------------------------------
 
 export function distorsion(d: DonneesRadier, c: Champ): { beta: number; entre: [[number, number], [number, number]] | null } {
   const a = d.Lx / c.nx;
   const b = d.Ly / c.ny;
   const W = c.w;
+  /** w bilineaire dans une maille active contenant le point (les mailles voisines si besoin). */
   const wEn = (x: number, y: number): number => {
-    const i = Math.min(c.nx - 1, Math.trunc(x / a));
-    const j = Math.min(c.ny - 1, Math.trunc(y / b));
-    const s = x / a - i;
-    const t = y / b - j;
+    const fi = x / a;
+    const fj = y / b;
+    const is = [Math.floor(fi), Math.floor(fi) - 1].map((i) => Math.min(c.nx - 1, Math.max(0, i)));
+    const js = [Math.floor(fj), Math.floor(fj) - 1].map((j) => Math.min(c.ny - 1, Math.max(0, j)));
+    let i = is[0];
+    let j = js[0];
+    trouve: for (const ii of is) {
+      for (const jj of js) {
+        if (c.cellules[jj * c.nx + ii] && fi >= ii - 1e-9 && fi <= ii + 1 + 1e-9 && fj >= jj - 1e-9 && fj <= jj + 1 + 1e-9) {
+          i = ii; j = jj; break trouve;
+        }
+      }
+    }
+    const s = Math.min(1, Math.max(0, fi - i));
+    const t = Math.min(1, Math.max(0, fj - j));
     return (1 - s) * (1 - t) * W[j * (c.nx + 1) + i]
       + s * (1 - t) * W[j * (c.nx + 1) + i + 1]
       + s * t * W[(j + 1) * (c.nx + 1) + i + 1]
@@ -549,6 +694,20 @@ export function distorsion(d: DonneesRadier, c: Champ): { beta: number; entre: [
       if (beta > bestBeta * (1 + 1e-9) + 1e-15) {
         bestBeta = beta;
         best = [[x, y], [q[0], q[1]]];
+      }
+    }
+  }
+  // Le long de chaque voile : points espaces d'au plus 2 m, distorsion entre points consecutifs.
+  for (const v of d.voiles) {
+    const L = Math.hypot(v.x2 - v.x1, v.y2 - v.y1);
+    const m = Math.max(1, Math.ceil(L / 2 - 1e-9));
+    for (let k = 0; k < m; k++) {
+      const p1: [number, number] = [v.x1 + ((v.x2 - v.x1) * k) / m, v.y1 + ((v.y2 - v.y1) * k) / m];
+      const p2: [number, number] = [v.x1 + ((v.x2 - v.x1) * (k + 1)) / m, v.y1 + ((v.y2 - v.y1) * (k + 1)) / m];
+      const beta = Math.abs(wEn(p1[0], p1[1]) - wEn(p2[0], p2[1])) / (L / m);
+      if (beta > bestBeta * (1 + 1e-9) + 1e-15) {
+        bestBeta = beta;
+        best = [p1, p2];
       }
     }
   }
@@ -607,7 +766,8 @@ export function verifierRadier(d: DonneesRadier): ResultatRadier {
     const champ = analyseRadier(d, gG, gQ);
     const moments = momentsDeCalcul(d, champ);
     const pmax = maxDe(champ.p);
-    const decolle = champ.actif.filter((v) => !v).length / champ.actif.length;
+    const nDans = champ.dans.filter((v) => v).length;
+    const decolle = champ.actif.filter((v, n) => champ.dans[n] && !v).length / nDans;
     const taux = d.verifications.qRd !== null ? pmax / d.verifications.qRd : null;
     if (decolle > 0) {
       alertes.push(`${c.nom} : ${Math.round(decolle * 100)} % des nœuds décollés`);
@@ -623,9 +783,15 @@ export function verifierRadier(d: DonneesRadier): ResultatRadier {
   });
 
   const champService = analyseRadier(d, 1, 1);
+  if ((d.contour && d.contour.length > 0) || (d.ouvertures ?? []).length > 0) {
+    const vise = airePolygone(contourDe(d)) - (d.ouvertures ?? []).reduce((s, o) => s + airePolygone(o), 0);
+    if (vise > 0 && Math.abs(champService.aire / vise - 1) > 0.02) {
+      alertes.push(`Contour approché par le maillage : ${champService.aire.toFixed(1).replace(".", ",")} m² maillés pour ${vise.toFixed(1).replace(".", ",")} m²`);
+    }
+  }
   const { beta, entre } = distorsion(d, champService);
   const wmax = maxDe(champService.w);
-  const wmin = minDe(champService.w);
+  const wmin = minDe(champService.w.filter((_, n) => champService.dans[n]));
   const pmaxService = maxDe(champService.p);
   const tauxW = d.verifications.wAdm !== null ? wmax / d.verifications.wAdm : null;
   const tauxBeta = d.verifications.betaAdm !== null ? beta / d.verifications.betaAdm : null;
@@ -644,7 +810,7 @@ export function verifierRadier(d: DonneesRadier): ResultatRadier {
     trouve = true;
   }
   if (tauxBeta !== null && (!trouve || tauxBeta > gouvernant.taux)) {
-    gouvernant = { verification: 'Distorsion entre poteaux', taux: tauxBeta };
+    gouvernant = { verification: 'Distorsion angulaire', taux: tauxBeta };
     trouve = true;
   }
 
